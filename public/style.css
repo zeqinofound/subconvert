@@ -203,6 +203,7 @@ input::placeholder, textarea::placeholder {
 .path-input-wrapper {
   display: flex;
   align-items: center;
+  background: var(--bg-card);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -219,7 +220,7 @@ input::placeholder, textarea::placeholder {
   font-family: var(--mono);
   font-size: 13px;
   color: var(--text-muted);
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.25);
   border-right: 1px solid var(--border);
   line-height: 42px;
   white-space: nowrap;
@@ -228,6 +229,7 @@ input::placeholder, textarea::placeholder {
 .path-input-wrapper input {
   border: none;
   border-radius: 0;
+  background: transparent;
   font-family: var(--mono);
   font-size: 13px;
 }
@@ -334,7 +336,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .links-table thead {
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .links-table th {
