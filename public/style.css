@@ -36,9 +36,13 @@
 body {
   font-family: var(--font);
   background:
-    radial-gradient(1200px 800px at 12% -10%, rgba(56, 189, 248, 0.35), transparent 60%),
-    radial-gradient(1000px 700px at 112% 8%, rgba(99, 102, 241, 0.30), transparent 55%),
-    linear-gradient(155deg, #071f52 0%, #0a3d91 38%, #0f66c2 72%, #2f9be8 100%);
+    radial-gradient(1100px 700px at 8% -10%, rgba(56, 189, 248, 0.38), transparent 65%),
+    radial-gradient(1000px 680px at 92% -4%, rgba(147, 92, 246, 0.34), transparent 65%),
+    radial-gradient(900px 640px at 100% 82%, rgba(224, 92, 168, 0.18), transparent 68%),
+    radial-gradient(980px 700px at -6% 92%, rgba(45, 196, 178, 0.22), transparent 65%),
+    radial-gradient(760px 560px at 52% 42%, rgba(64, 120, 246, 0.26), transparent 68%),
+    radial-gradient(140% 90% at 50% 115%, rgba(2, 6, 23, 0.55), transparent 60%),
+    linear-gradient(165deg, #0a0f2e 0%, #111743 36%, #10315f 70%, #0b3a5c 100%);
   background-attachment: fixed;
   color: var(--text);
   line-height: 1.6;
