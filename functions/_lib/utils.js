@@ -97,6 +97,27 @@ export function sanitizePath(path) {
  */
 export function splitSourceUrls(sourceUrl) {
   if (!sourceUrl || typeof sourceUrl !== 'string') return [];
+  // 容忍零分隔粘连：同一地址连贴两遍、中间没有任何分隔符时，要在每个
+  // 新地址的开头补一刀。真实例子：h-ui 订阅地址粘成一条，抓取必然失败，
+  // 节点就这么"消失"了。做法：先扫出所有 scheme 的起始位置（正则从左到
+  // 右不重叠地匹配，"vless" 内部的 "ss://" 不会被误认成新地址），再对
+  // 那些不在开头、也不紧跟分隔符的起始位置切开。合法地址的参数里若真
+  // 嵌了另一个 scheme://，通常会做百分号编码，不会裸露出现。
+  const SCHEME_RE = /(?:https?|vless|vmess|ssr|ss|trojan|hysteria2|hy2|tuic|anytls):\/\//gi;
+  const starts = [];
+  let sm;
+  while ((sm = SCHEME_RE.exec(sourceUrl)) !== null) starts.push(sm.index);
+  if (starts.length > 1) {
+    let out = '', prev = 0;
+    for (let i = 1; i < starts.length; i++) {
+      const idx = starts[i];
+      const before = sourceUrl[idx - 1];
+      if (before === '|' || /\s/.test(before)) continue;
+      out += sourceUrl.slice(prev, idx) + '\n';
+      prev = idx;
+    }
+    sourceUrl = out + sourceUrl.slice(prev);
+  }
   const parts = [];
   for (const chunk of sourceUrl.split(/[|\r\n]+/)) {
     // 容忍空格粘连：整段粘贴多个链接时常以空格相连（比如同一节点链接
