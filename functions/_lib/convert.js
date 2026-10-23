@@ -310,6 +310,7 @@ export async function processSubscriptionRequest(kv, path) {
       sourceFormat: result.sourceFormat,
       userInfo: sourceHeaders.userInfo || null,
       webPageUrl: sourceHeaders.webPageUrl || null,
+      updateInterval: link.updateInterval || null,
     };
   }
 
@@ -351,5 +352,6 @@ export async function processSubscriptionRequest(kv, path) {
     sourceFormat: result.sourceFormat,
     userInfo: mergeUserInfos(succeeded.map(s => s.headers.userInfo)),
     webPageUrl: succeeded.map(s => s.headers.webPageUrl).find(Boolean) || null,
+    updateInterval: link.updateInterval || null,
   };
 }

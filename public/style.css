@@ -385,6 +385,12 @@ input::placeholder, textarea::placeholder {
   max-width: 96px;
 }
 
+.cell-interval {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+}
+
 .cell-path-link {
   color: var(--primary);
   text-decoration: none;

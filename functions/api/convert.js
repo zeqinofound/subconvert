@@ -55,7 +55,7 @@ export async function onRequestPost(context) {
     return error('Invalid JSON body');
   }
 
-  const { sourceUrl, targetFormat, customPath, name, userAgent } = body;
+  const { sourceUrl, targetFormat, customPath, name, userAgent, updateInterval } = body;
 
   // Validate required fields
   if (!sourceUrl || typeof sourceUrl !== 'string') {
@@ -72,6 +72,17 @@ export async function onRequestPost(context) {
   }
   if (typeof userAgent === 'string' && userAgent.length > 512) {
     return error('userAgent 过长（上限 512 字符）', 400);
+  }
+  // 自动更新间隔（小时）：可选。设置后 /sub 响应会带
+  // profile-update-interval 头，支持该头的客户端（小火箭等）会按这个
+  // 间隔自动刷新订阅。范围 1–720 小时（30 天）。
+  let updateIntervalHours = null;
+  if (updateInterval !== undefined && updateInterval !== null && updateInterval !== '') {
+    const n = Number(updateInterval);
+    if (!Number.isInteger(n) || n < 1 || n > 720) {
+      return error('updateInterval 须为 1–720 的整数（单位：小时）', 400);
+    }
+    updateIntervalHours = n;
   }
 
   // Validate URL format — 支持多源合并：sourceUrl 里可以用 | 或换行
@@ -145,6 +156,7 @@ export async function onRequestPost(context) {
       customPath: path,
       name: name || '',
       userAgent: userAgent || '',
+      updateInterval: updateIntervalHours,
     });
   } catch (e) {
     return error(e.message || 'Failed to create link', 400);
