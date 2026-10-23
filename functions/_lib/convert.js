@@ -6,7 +6,7 @@
 import { parseSubscription, parseMergedSubscriptions } from './sub-parse.js';
 import { generateSubscription } from './sub-generate.js';
 import { getLink } from './store.js';
-import { validatePublicUrl, splitSourceUrls } from './utils.js';
+import { validatePublicUrl, splitSourceUrls, isProxyUri } from './utils.js';
 
 /** Default User-Agent for fetching subscriptions (many providers require a specific UA) */
 const DEFAULT_UA = 'clash-verge/v2.5.1';
@@ -283,8 +283,9 @@ export async function processSubscriptionRequest(kv, path) {
 
   const sourceUrls = splitSourceUrls(link.sourceUrl);
 
-  // 单源：保持原有行为（包括源站流量信息头的原样透传）。
-  if (sourceUrls.length <= 1) {
+  // 单个 http(s) 源：保持原有行为（包括源站流量信息头的原样透传）。
+  // 单个"源"若是直接粘贴的节点链接（vless:// 等），走下面的通用路径。
+  if (sourceUrls.length <= 1 && !isProxyUri(sourceUrls[0] || '')) {
     let sourceContent;
     let sourceHeaders = {};
     try {
@@ -312,12 +313,17 @@ export async function processSubscriptionRequest(kv, path) {
     };
   }
 
-  // 多源合并：并行抓取，单个源失败不拖垮整条链接（某个机场或其镜像
-  // 临时挂掉是常态），全部失败才报错。每个源仍走 fetchSubscription，
-  // SSRF 校验、超时和 5MB 上限对每个源各自生效。
+  // 多源合并：逐个取内容再合并。条目有两种：http(s) 订阅地址并行抓取，
+  // 单个抓取失败不拖垮整条链接（某个机场或其镜像临时挂掉是常态），全部
+  // 失败才报错；直接粘贴的节点链接（vless:// 等）本身就是内容，不抓取。
+  // 抓取仍走 fetchSubscription，SSRF 校验、超时和 5MB 上限对每个源各自生效。
   const settled = await Promise.all(sourceUrls.map(async (u) => {
+    if (isProxyUri(u)) {
+      return { ok: true, content: u, headers: {} };
+    }
     try {
-      return { ok: true, fetched: await fetchSubscription(u, link.userAgent) };
+      const fetched = await fetchSubscription(u, link.userAgent);
+      return { ok: true, content: fetched.content, headers: fetched.headers };
     } catch (e) {
       return { ok: false, error: e };
     }
@@ -330,7 +336,7 @@ export async function processSubscriptionRequest(kv, path) {
   let result;
   try {
     result = convertMergedSubscriptions(
-      succeeded.map(s => s.fetched.content),
+      succeeded.map(s => s.content),
       link.targetFormat,
       { name: link.name }
     );
@@ -343,7 +349,7 @@ export async function processSubscriptionRequest(kv, path) {
     contentType: result.contentType,
     nodeCount: result.nodeCount,
     sourceFormat: result.sourceFormat,
-    userInfo: mergeUserInfos(succeeded.map(s => s.fetched.headers.userInfo)),
-    webPageUrl: succeeded.map(s => s.fetched.headers.webPageUrl).find(Boolean) || null,
+    userInfo: mergeUserInfos(succeeded.map(s => s.headers.userInfo)),
+    webPageUrl: succeeded.map(s => s.headers.webPageUrl).find(Boolean) || null,
   };
 }

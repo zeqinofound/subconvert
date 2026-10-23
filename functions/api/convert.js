@@ -22,7 +22,8 @@
  */
 
 import { createLink, pathExists } from '../_lib/store.js';
-import { sanitizePath, generateId, validatePublicUrl, splitSourceUrls } from '../_lib/utils.js';
+import { sanitizePath, generateId, validatePublicUrl, splitSourceUrls, isProxyUri } from '../_lib/utils.js';
+import { parseSubscription } from '../_lib/sub-parse.js';
 import { json, error, handleCORS } from '../_lib/response.js';
 import { authenticate } from '../_lib/auth.js';
 
@@ -84,6 +85,15 @@ export async function onRequestPost(context) {
     return error(`源订阅最多支持 10 个（当前填了 ${sourceUrls.length} 个）`, 400);
   }
   for (let i = 0; i < sourceUrls.length; i++) {
+    // 直接粘贴的节点链接（vless:// 等）：不发起抓取，没有 SSRF 风险；
+    // 但要在创建时就验证它确实能解析出节点，避免存下永远报错的链接。
+    if (isProxyUri(sourceUrls[i])) {
+      if (parseSubscription(sourceUrls[i]).nodes.length === 0) {
+        return error(`sourceUrl 中第 ${i + 1} 个节点链接无法解析，请检查是否完整`, 400);
+      }
+      continue;
+    }
+
     try {
       new URL(sourceUrls[i]);
     } catch {

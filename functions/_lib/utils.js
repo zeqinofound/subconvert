@@ -97,7 +97,31 @@ export function sanitizePath(path) {
  */
 export function splitSourceUrls(sourceUrl) {
   if (!sourceUrl || typeof sourceUrl !== 'string') return [];
-  return sourceUrl.split(/[|\r\n]+/).map(s => s.trim()).filter(Boolean);
+  const parts = [];
+  for (const chunk of sourceUrl.split(/[|\r\n]+/)) {
+    // 容忍空格粘连：整段粘贴多个链接时常以空格相连（比如同一节点链接
+    // 贴了两遍），在"空白 + 协议头"处再切一刀。合法地址本身不含未编码
+    // 的空格，所以不会误伤。
+    for (const piece of chunk.split(/\s+(?=[a-zA-Z][a-zA-Z0-9+.-]*:\/\/)/)) {
+      const t = piece.trim();
+      if (t) parts.push(t);
+    }
+  }
+  return parts;
+}
+
+/** 已知的代理节点协议头：以此开头的"源"不是要抓取的地址，而是节点本身 */
+const PROXY_URI_SCHEMES = ['vless', 'vmess', 'ss', 'ssr', 'trojan', 'hysteria2', 'hy2', 'tuic', 'anytls'];
+
+/**
+ * 判断一个源条目是不是直接粘贴的节点链接（如 vless://…）。
+ * 这类条目不需要、也不能发起网络抓取，它本身就是订阅内容。
+ * @param {string} str
+ * @returns {boolean}
+ */
+export function isProxyUri(str) {
+  const m = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\//.exec(String(str || '').trim());
+  return !!m && PROXY_URI_SCHEMES.includes(m[1].toLowerCase());
 }
 
 // ─── SSRF 防护：出网地址校验 ────────────────────────────────
