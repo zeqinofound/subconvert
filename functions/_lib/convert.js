@@ -3,10 +3,10 @@
  * All processing happens locally on Cloudflare's edge — no third-party conversion services.
  */
 
-import { parseSubscription } from './sub-parse.js';
+import { parseSubscription, parseMergedSubscriptions } from './sub-parse.js';
 import { generateSubscription } from './sub-generate.js';
 import { getLink } from './store.js';
-import { validatePublicUrl } from './utils.js';
+import { validatePublicUrl, splitSourceUrls } from './utils.js';
 
 /** Default User-Agent for fetching subscriptions (many providers require a specific UA) */
 const DEFAULT_UA = 'clash-verge/v2.5.1';
@@ -198,6 +198,71 @@ export function convertSubscription(content, targetFormat, options = {}) {
 }
 
 /**
+ * Convert and merge several subscription payloads into one output.
+ * Merging semantics live in parseMergedSubscriptions: the first payload
+ * that yields nodes is the primary source (its groups / rules / dns are
+ * preserved), later payloads contribute nodes only; exact duplicates are
+ * dropped and cross-source name collisions get numeric suffixes.
+ * @param {string[]} contents - Raw subscription payloads, one per source
+ * @param {string} targetFormat - Target output format
+ * @param {object} options - Additional options
+ * @returns {{content: string, contentType: string, sourceFormat: string, nodeCount: number}}
+ */
+export function convertMergedSubscriptions(contents, targetFormat, options = {}) {
+  const { nodes, format: sourceFormat, meta } = parseMergedSubscriptions(contents);
+
+  if (nodes.length === 0) {
+    throw new Error(`No proxy nodes found in any source subscription (${contents.length} sources tried)`);
+  }
+
+  const { content: output, contentType } = generateSubscription(nodes, targetFormat, { ...options, meta });
+
+  return {
+    content: output,
+    contentType,
+    sourceFormat,
+    nodeCount: nodes.length,
+  };
+}
+
+/** 解析一个 Subscription-Userinfo 头为数值字段（解析不了的字段忽略） */
+function parseUserInfoHeader(str) {
+  const out = {};
+  for (const part of String(str).split(';')) {
+    const eq = part.indexOf('=');
+    if (eq < 0) continue;
+    const key = part.slice(0, eq).trim();
+    const value = Number(part.slice(eq + 1).trim());
+    if (key && Number.isFinite(value)) out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * 合并多个源的流量信息：已用 / 总量按各源求和，到期时间取最早的一个。
+ * 单源链接不走这里（源站的头原样透传，见 sub/[path].js 的说明）；
+ * 合并链接没有"原样"可言，只能给出合并后的数值。没有任何源提供
+ * 流量信息时返回 null，输出里就不带这个头，避免编造数字。
+ */
+export function mergeUserInfos(userInfos) {
+  const present = (userInfos || []).filter(Boolean).map(parseUserInfoHeader)
+    .filter(o => Object.keys(o).length > 0);
+  if (present.length === 0) return null;
+
+  const sumField = (key) => present.some(o => key in o)
+    ? present.reduce((acc, o) => acc + (o[key] || 0), 0)
+    : undefined;
+  const parts = [];
+  for (const key of ['upload', 'download', 'total']) {
+    const v = sumField(key);
+    if (v !== undefined) parts.push(`${key}=${Math.round(v)}`);
+  }
+  const expires = present.map(o => o.expire).filter(v => typeof v === 'number' && v > 0);
+  if (expires.length > 0) parts.push(`expire=${Math.min(...expires)}`);
+  return parts.length > 0 ? parts.join('; ') : null;
+}
+
+/**
  * Full conversion pipeline: fetch → parse → convert.
  * Fetches the source subscription and converts it to the target format.
  *
@@ -216,21 +281,59 @@ export async function processSubscriptionRequest(kv, path) {
     return { error: 404, message: 'Subscription link not found' };
   }
 
-  // Fetch source subscription
-  let sourceContent;
-  let sourceHeaders = {};
-  try {
-    const fetched = await fetchSubscription(link.sourceUrl, link.userAgent);
-    sourceContent = fetched.content;
-    sourceHeaders = fetched.headers;
-  } catch (e) {
-    return { error: 502, message: `Failed to fetch source: ${e.message}` };
+  const sourceUrls = splitSourceUrls(link.sourceUrl);
+
+  // 单源：保持原有行为（包括源站流量信息头的原样透传）。
+  if (sourceUrls.length <= 1) {
+    let sourceContent;
+    let sourceHeaders = {};
+    try {
+      const fetched = await fetchSubscription(link.sourceUrl, link.userAgent);
+      sourceContent = fetched.content;
+      sourceHeaders = fetched.headers;
+    } catch (e) {
+      return { error: 502, message: `Failed to fetch source: ${e.message}` };
+    }
+
+    let result;
+    try {
+      result = convertSubscription(sourceContent, link.targetFormat, { name: link.name });
+    } catch (e) {
+      return { error: 500, message: `Conversion failed: ${e.message}` };
+    }
+
+    return {
+      content: result.content,
+      contentType: result.contentType,
+      nodeCount: result.nodeCount,
+      sourceFormat: result.sourceFormat,
+      userInfo: sourceHeaders.userInfo || null,
+      webPageUrl: sourceHeaders.webPageUrl || null,
+    };
   }
 
-  // Convert
+  // 多源合并：并行抓取，单个源失败不拖垮整条链接（某个机场或其镜像
+  // 临时挂掉是常态），全部失败才报错。每个源仍走 fetchSubscription，
+  // SSRF 校验、超时和 5MB 上限对每个源各自生效。
+  const settled = await Promise.all(sourceUrls.map(async (u) => {
+    try {
+      return { ok: true, fetched: await fetchSubscription(u, link.userAgent) };
+    } catch (e) {
+      return { ok: false, error: e };
+    }
+  }));
+  const succeeded = settled.filter(s => s.ok);
+  if (succeeded.length === 0) {
+    return { error: 502, message: `Failed to fetch source: ${settled[0].error.message}` };
+  }
+
   let result;
   try {
-    result = convertSubscription(sourceContent, link.targetFormat, { name: link.name });
+    result = convertMergedSubscriptions(
+      succeeded.map(s => s.fetched.content),
+      link.targetFormat,
+      { name: link.name }
+    );
   } catch (e) {
     return { error: 500, message: `Conversion failed: ${e.message}` };
   }
@@ -240,7 +343,7 @@ export async function processSubscriptionRequest(kv, path) {
     contentType: result.contentType,
     nodeCount: result.nodeCount,
     sourceFormat: result.sourceFormat,
-    userInfo: sourceHeaders.userInfo || null,
-    webPageUrl: sourceHeaders.webPageUrl || null,
+    userInfo: mergeUserInfos(succeeded.map(s => s.fetched.headers.userInfo)),
+    webPageUrl: succeeded.map(s => s.fetched.headers.webPageUrl).find(Boolean) || null,
   };
 }

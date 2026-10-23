@@ -158,7 +158,7 @@ label {
   color: var(--danger);
 }
 
-input, select {
+input, select, textarea {
   font-family: var(--font);
   font-size: 14px;
   padding: 10px 12px;
@@ -170,13 +170,18 @@ input, select {
   width: 100%;
 }
 
-input:focus, select:focus {
+textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
-input::placeholder {
+input::placeholder, textarea::placeholder {
   color: var(--text-muted);
 }
 

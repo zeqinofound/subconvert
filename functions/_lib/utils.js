@@ -87,6 +87,19 @@ export function sanitizePath(path) {
   return cleaned;
 }
 
+/**
+ * 拆分源订阅地址：一条转换链接可以填多个源订阅，用 | 或换行分隔，
+ * 抓取时把它们合并成一份输出（多源合并）。只填一个时返回长度为 1 的
+ * 数组，调用方可以无差别处理。合法 URL 本身不包含未编码的 | 或换行，
+ * 所以这样拆分不会误伤单个地址。
+ * @param {string} sourceUrl
+ * @returns {string[]}
+ */
+export function splitSourceUrls(sourceUrl) {
+  if (!sourceUrl || typeof sourceUrl !== 'string') return [];
+  return sourceUrl.split(/[|\r\n]+/).map(s => s.trim()).filter(Boolean);
+}
+
 // ─── SSRF 防护：出网地址校验 ────────────────────────────────
 
 /**
