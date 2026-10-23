@@ -1,25 +1,28 @@
 :root {
-  --bg: #f0f2f5;
-  --bg-card: #ffffff;
-  --bg-hover: #f8fafc;
-  --border: #e2e8f0;
-  --text: #1e293b;
-  --text-secondary: #64748b;
-  --text-muted: #94a3b8;
-  --primary: #6366f1;
-  --primary-hover: #5558e3;
-  --primary-light: #eef2ff;
-  --danger: #ef4444;
-  --danger-hover: #dc2626;
-  --danger-light: #fef2f2;
-  --success: #10b981;
-  --success-light: #ecfdf5;
-  --warning: #f59e0b;
-  --radius: 10px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  color-scheme: dark;
+  --bg-card: rgba(255, 255, 255, 0.10);
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.22);
+  --text: #f2f7ff;
+  --text-secondary: rgba(226, 238, 255, 0.80);
+  --text-muted: rgba(203, 224, 252, 0.55);
+  --primary: #4dabff;
+  --primary-hover: #2f8fe8;
+  --primary-light: rgba(77, 171, 255, 0.18);
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+  --danger-light: rgba(248, 113, 113, 0.14);
+  --success: #34d399;
+  --success-light: rgba(52, 211, 153, 0.14);
+  --warning: #fbbf24;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-lg: 22px;
+  --shadow: 0 8px 32px rgba(2, 12, 40, 0.35);
+  --shadow-md: 0 12px 40px rgba(2, 12, 40, 0.40);
+  --shadow-lg: 0 20px 50px rgba(2, 12, 40, 0.50);
+  --glass: linear-gradient(145deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.06));
+  --glass-blur: blur(18px) saturate(160%);
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
   --mono: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", Consolas, monospace;
 }
@@ -32,7 +35,11 @@
 
 body {
   font-family: var(--font);
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 800px at 12% -10%, rgba(56, 189, 248, 0.35), transparent 60%),
+    radial-gradient(1000px 700px at 112% 8%, rgba(99, 102, 241, 0.30), transparent 55%),
+    linear-gradient(155deg, #071f52 0%, #0a3d91 38%, #0f66c2 72%, #2f9be8 100%);
+  background-attachment: fixed;
   color: var(--text);
   line-height: 1.6;
   min-height: 100vh;
@@ -47,12 +54,14 @@ body {
 
 /* Header */
 .header {
-  background: var(--bg-card);
+  background: rgba(8, 32, 84, 0.42);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: var(--shadow);
+  box-shadow: 0 4px 24px rgba(2, 12, 40, 0.25);
 }
 
 .header-inner {
@@ -100,10 +109,12 @@ body {
 
 /* Cards */
 .card {
-  background: var(--bg-card);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   overflow: hidden;
 }
 
@@ -178,7 +189,7 @@ textarea {
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  box-shadow: 0 0 0 3px rgba(77, 171, 255, 0.25);
 }
 
 input::placeholder, textarea::placeholder {
@@ -196,7 +207,7 @@ input::placeholder, textarea::placeholder {
 
 .path-input-wrapper:focus-within {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  box-shadow: 0 0 0 3px rgba(77, 171, 255, 0.25);
 }
 
 .path-prefix {
@@ -466,9 +477,12 @@ input::placeholder, textarea::placeholder {
 }
 
 .feature {
-  background: var(--bg-card);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   padding: 20px;
   text-align: center;
 }
@@ -519,7 +533,9 @@ input::placeholder, textarea::placeholder {
 }
 
 .toast {
-  background: var(--bg-card);
+  background: linear-gradient(145deg, rgba(30, 64, 140, 0.72), rgba(16, 42, 100, 0.78));
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border);
   border-left: 3px solid var(--primary);
   border-radius: var(--radius-sm);
@@ -671,10 +687,12 @@ input::placeholder, textarea::placeholder {
 }
 
 .auth-modal {
-  background: var(--bg-card);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   width: 100%;
   max-width: 400px;
   padding: 32px 28px;
