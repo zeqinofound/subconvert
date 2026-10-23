@@ -1,5 +1,5 @@
 /**
- * Auth utilities for SubConvert
+ * Auth utilities for PenguinLink
  */
 
 import { getClientIP, getLockout, recordFailure, clearFailures } from './rate-limit.js';

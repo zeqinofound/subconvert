@@ -362,7 +362,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .links-table tbody tr:hover {
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .links-table tbody tr:last-child td {

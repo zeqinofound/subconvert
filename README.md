@@ -1,4 +1,4 @@
-# SubConvert - 代理订阅转换
+# PenguinLink - 代理订阅转换
 
 自托管的代理节点订阅转换工具，部署在 Cloudflare Pages 上。转换逻辑全部在 Cloudflare 边缘节点本地执行，**不依赖任何第三方转换服务**，订阅数据不会外泄。
 

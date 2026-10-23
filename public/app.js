@@ -1,5 +1,5 @@
 /**
- * SubConvert Frontend
+ * PenguinLink Frontend
  * Handles form submission, link management, authentication, and UI interactions.
  */
 
