@@ -3,7 +3,7 @@
  *
  * Request body:
  *   {
- *     "sourceUrl": "https://example.com/sub",      // required
+ *     "sourceUrl": "https://example.com/sub",      // required；可填多个源，用 | 或换行分隔，输出时合并为一份订阅
  *     "targetFormat": "clash",                       // required: clash | singbox | base64 | plain
  *     "customPath": "my-sub",                        // optional, auto-generated if omitted
  *     "name": "My Subscription"                      // optional display name
@@ -22,7 +22,8 @@
  */
 
 import { createLink, pathExists } from '../_lib/store.js';
-import { sanitizePath, generateId, validatePublicUrl } from '../_lib/utils.js';
+import { sanitizePath, generateId, validatePublicUrl, splitSourceUrls, isProxyUri } from '../_lib/utils.js';
+import { parseSubscription } from '../_lib/sub-parse.js';
 import { json, error, handleCORS } from '../_lib/response.js';
 import { authenticate } from '../_lib/auth.js';
 
@@ -63,8 +64,8 @@ export async function onRequestPost(context) {
 
   // 长度上限：所有链接都存在单个 KV value 里，超限会撑爆 25MB 上限、
   // 让全部链接一起失效。
-  if (sourceUrl.length > 2048) {
-    return error('sourceUrl 过长（上限 2048 字符）', 400);
+  if (sourceUrl.length > 4096) {
+    return error('sourceUrl 过长（上限 4096 字符）', 400);
   }
   if (typeof name === 'string' && name.length > 200) {
     return error('name 过长（上限 200 字符）', 400);
@@ -73,18 +74,37 @@ export async function onRequestPost(context) {
     return error('userAgent 过长（上限 512 字符）', 400);
   }
 
-  // Validate URL format
-  try {
-    new URL(sourceUrl);
-  } catch {
-    return error('sourceUrl is not a valid URL');
+  // Validate URL format — 支持多源合并：sourceUrl 里可以用 | 或换行
+  // 分隔多个源订阅，逐个校验。抓取时（fetchSubscription）还会对每个源
+  // 的重定向每一跳再校验一次。
+  const sourceUrls = splitSourceUrls(sourceUrl);
+  if (sourceUrls.length === 0) {
+    return error('sourceUrl is required');
   }
+  if (sourceUrls.length > 10) {
+    return error(`源订阅最多支持 10 个（当前填了 ${sourceUrls.length} 个）`, 400);
+  }
+  for (let i = 0; i < sourceUrls.length; i++) {
+    // 直接粘贴的节点链接（vless:// 等）：不发起抓取，没有 SSRF 风险；
+    // 但要在创建时就验证它确实能解析出节点，避免存下永远报错的链接。
+    if (isProxyUri(sourceUrls[i])) {
+      if (parseSubscription(sourceUrls[i]).nodes.length === 0) {
+        return error(`sourceUrl 中第 ${i + 1} 个节点链接无法解析，请检查是否完整`, 400);
+      }
+      continue;
+    }
 
-  // SSRF 防护：服务端会去抓这个地址，必须限制为公网 http(s)。
-  // 抓取时（fetchSubscription）还会对重定向的每一跳再校验一次。
-  const guard = validatePublicUrl(sourceUrl);
-  if (!guard.ok) {
-    return error(`sourceUrl 不允许：${guard.reason}`, 400);
+    try {
+      new URL(sourceUrls[i]);
+    } catch {
+      return error(`sourceUrl 中第 ${i + 1} 个地址不是合法 URL`);
+    }
+
+    // SSRF 防护：服务端会去抓这些地址，必须限制为公网 http(s)。
+    const guard = validatePublicUrl(sourceUrls[i]);
+    if (!guard.ok) {
+      return error(`sourceUrl 中第 ${i + 1} 个地址不允许：${guard.reason}`, 400);
+    }
   }
 
   // Validate target format

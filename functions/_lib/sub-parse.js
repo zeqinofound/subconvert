@@ -62,6 +62,62 @@ export function parseSubscription(content) {
 }
 
 /**
+ * Parse several subscription payloads and merge them into one node list.
+ *
+ * The first payload that yields nodes is the primary source: its format and
+ * meta (proxy groups / rules / dns carried from a Clash or Sing-box config)
+ * are kept; later payloads contribute nodes only. Exact duplicate nodes —
+ * same everything except the display name, e.g. the same airport reached
+ * through a mirror URL — are dropped. Name collisions across sources are
+ * then resolved by dedupeNames; it processes the primary source's nodes
+ * first and they were already internally de-duplicated, so their names
+ * never change and the primary meta's references stay valid.
+ * @param {string[]} contents
+ * @returns {{nodes: Array, format: string, meta: object}}
+ */
+export function parseMergedSubscriptions(contents) {
+  const parsedList = [];
+  for (const content of contents || []) {
+    const parsed = parseSubscription(content);
+    if (parsed.nodes.length > 0) parsedList.push(parsed);
+  }
+  if (parsedList.length === 0) return { nodes: [], format: 'unknown', meta: {} };
+  if (parsedList.length === 1) return parsedList[0];
+
+  const primary = parsedList[0];
+  let nodes = [];
+  for (const p of parsedList) nodes.push(...p.nodes);
+  nodes = dedupeIdenticalNodes(nodes);
+  dedupeNames(nodes);
+  return { nodes, format: primary.format, meta: primary.meta };
+}
+
+/** Canonical stringify with sorted object keys (key order differs per parser). */
+function stableStringify(value) {
+  if (value === null || typeof value !== 'object') {
+    const s = JSON.stringify(value);
+    return s === undefined ? '' : s;
+  }
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  const keys = Object.keys(value).sort();
+  return `{${keys.map(k => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;
+}
+
+/** Drop later occurrences of nodes that are identical apart from the name. */
+function dedupeIdenticalNodes(nodes) {
+  const seen = new Set();
+  const out = [];
+  for (const n of nodes) {
+    const { name, ...rest } = n;
+    const key = stableStringify(rest);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(n);
+  }
+  return out;
+}
+
+/**
  * Deep-clone plain config objects. Subscription configs are pure JSON data
  * (no functions/classes), so a round-trip through JSON is safe and avoids
  * mutating the parsed source document when we rewrite references.

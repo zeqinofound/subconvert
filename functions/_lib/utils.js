@@ -87,6 +87,64 @@ export function sanitizePath(path) {
   return cleaned;
 }
 
+/**
+ * 拆分源订阅地址：一条转换链接可以填多个源订阅，用 | 或换行分隔，
+ * 抓取时把它们合并成一份输出（多源合并）。只填一个时返回长度为 1 的
+ * 数组，调用方可以无差别处理。合法 URL 本身不包含未编码的 | 或换行，
+ * 所以这样拆分不会误伤单个地址。
+ * @param {string} sourceUrl
+ * @returns {string[]}
+ */
+export function splitSourceUrls(sourceUrl) {
+  if (!sourceUrl || typeof sourceUrl !== 'string') return [];
+  // 容忍零分隔粘连：同一地址连贴两遍、中间没有任何分隔符时，要在每个
+  // 新地址的开头补一刀。真实例子：h-ui 订阅地址粘成一条，抓取必然失败，
+  // 节点就这么"消失"了。做法：先扫出所有 scheme 的起始位置（正则从左到
+  // 右不重叠地匹配，"vless" 内部的 "ss://" 不会被误认成新地址），再对
+  // 那些不在开头、也不紧跟分隔符的起始位置切开。合法地址的参数里若真
+  // 嵌了另一个 scheme://，通常会做百分号编码，不会裸露出现。
+  const SCHEME_RE = /(?:https?|vless|vmess|ssr|ss|trojan|hysteria2|hy2|tuic|anytls):\/\//gi;
+  const starts = [];
+  let sm;
+  while ((sm = SCHEME_RE.exec(sourceUrl)) !== null) starts.push(sm.index);
+  if (starts.length > 1) {
+    let out = '', prev = 0;
+    for (let i = 1; i < starts.length; i++) {
+      const idx = starts[i];
+      const before = sourceUrl[idx - 1];
+      if (before === '|' || /\s/.test(before)) continue;
+      out += sourceUrl.slice(prev, idx) + '\n';
+      prev = idx;
+    }
+    sourceUrl = out + sourceUrl.slice(prev);
+  }
+  const parts = [];
+  for (const chunk of sourceUrl.split(/[|\r\n]+/)) {
+    // 容忍空格粘连：整段粘贴多个链接时常以空格相连（比如同一节点链接
+    // 贴了两遍），在"空白 + 协议头"处再切一刀。合法地址本身不含未编码
+    // 的空格，所以不会误伤。
+    for (const piece of chunk.split(/\s+(?=[a-zA-Z][a-zA-Z0-9+.-]*:\/\/)/)) {
+      const t = piece.trim();
+      if (t) parts.push(t);
+    }
+  }
+  return parts;
+}
+
+/** 已知的代理节点协议头：以此开头的"源"不是要抓取的地址，而是节点本身 */
+const PROXY_URI_SCHEMES = ['vless', 'vmess', 'ss', 'ssr', 'trojan', 'hysteria2', 'hy2', 'tuic', 'anytls'];
+
+/**
+ * 判断一个源条目是不是直接粘贴的节点链接（如 vless://…）。
+ * 这类条目不需要、也不能发起网络抓取，它本身就是订阅内容。
+ * @param {string} str
+ * @returns {boolean}
+ */
+export function isProxyUri(str) {
+  const m = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\//.exec(String(str || '').trim());
+  return !!m && PROXY_URI_SCHEMES.includes(m[1].toLowerCase());
+}
+
 // ─── SSRF 防护：出网地址校验 ────────────────────────────────
 
 /**
