@@ -114,7 +114,7 @@ export async function onRequestPost(context) {
 
   // Sanitize and validate custom path
   const rawPath = customPath ? String(customPath).trim() : '';
-  let path = rawPath ? sanitizePath(rawPath) : generateId(8);
+  let path = rawPath ? sanitizePath(rawPath) : generateId(20);
 
   // Reject unsupported characters explicitly instead of silently
   // generating a random path. Spaces are allowed (auto → hyphen).
@@ -128,7 +128,7 @@ export async function onRequestPost(context) {
   }
 
   if (!path) {
-    path = generateId(8);
+    path = generateId(20);
   }
 
   // Check if path already exists

@@ -271,7 +271,7 @@ export function validatePublicUrl(raw) {
 }
 
 /** Generate a random short ID */
-export function generateId(length = 8) {
+export function generateId(length = 20) {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
   const bytes = new Uint8Array(length);
