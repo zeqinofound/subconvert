@@ -2,7 +2,7 @@
  * Auth utilities for SubConvert
  */
 
-import { getClientIP, getLockout, recordFailure, clearFailures } from './rate-limit.js';
+import { getClientIP, getLockout, recordFailure, clearFailures, getBan, recordDayFailure } from './rate-limit.js';
 
 /**
  * Get password auth configuration from Cloudflare environment
@@ -65,7 +65,8 @@ export function checkAuth(request, env, bodyPassword) {
  * 不会因为限流组件不可用而把接口敞开。
  *
  * @returns {Promise<{ok: boolean, required: boolean, reason?: string, retryAfter?: number}>}
- *   reason: 'locked' 表示触发了锁定；'bad-password' 表示密码错误
+ *   reason: 'locked' 表示触发了短时锁定；'bad-password' 表示密码错误；
+ *   'banned' 表示该 IP 一天内输错已达 20 次，被永久封禁
  */
 export async function authenticate(request, env, bodyPassword) {
   const { required } = getAuthConfig(env);
@@ -75,6 +76,11 @@ export async function authenticate(request, env, bodyPassword) {
 
   const ip = getClientIP(request);
   const kv = env && env.SUBCONVERT_KV;
+
+  // 永久封禁最优先：被封的 IP 就算密码正确也不放行
+  if (await getBan(kv, ip)) {
+    return { ok: false, required: true, reason: 'banned' };
+  }
 
   const lock = await getLockout(kv, ip);
   if (lock.locked) {
@@ -87,10 +93,26 @@ export async function authenticate(request, env, bodyPassword) {
   }
 
   const result = await recordFailure(kv, ip);
+  // 当日累计（独立于短时锁定）：输错攒满 20 次直接永久封禁
+  const day = await recordDayFailure(kv, ip);
+  if (day.banned) {
+    return { ok: false, required: true, reason: 'banned' };
+  }
   return {
     ok: false,
     required: true,
     reason: result.locked ? 'locked' : 'bad-password',
     retryAfter: result.retryAfter || 0,
   };
+}
+
+/**
+ * 某请求来源 IP 是否已被永久封禁。
+ * 给不走密码校验的入口用（例如 /sub 订阅输出）：被封的 IP 同样拒绝，
+ * 实现站长定的"永久拒绝访问"。
+ */
+export async function isBanned(request, env) {
+  const kv = env && env.SUBCONVERT_KV;
+  if (!kv) return false;
+  return getBan(kv, getClientIP(request));
 }

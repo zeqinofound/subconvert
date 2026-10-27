@@ -16,6 +16,9 @@ import { subscriptionCacheKey } from '../_lib/cache.js';
 
 /** 鉴权失败时的统一响应（含限流锁定提示） */
 function authError(auth) {
+  if (auth.reason === 'banned') {
+    return error('该 IP 输错密码次数过多，已被永久拒绝访问', 403);
+  }
   if (auth.reason === 'locked') {
     return error(
       `密码错误次数过多，请 ${Math.ceil(auth.retryAfter / 60)} 分钟后再试`,

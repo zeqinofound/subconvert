@@ -28,6 +28,10 @@ export async function onRequestGet(context) {
     return json({ required: true, authenticated: true });
   }
 
+  if (auth.reason === 'banned') {
+    return error('该 IP 输错密码次数过多，已被永久拒绝访问', 403);
+  }
+
   if (auth.reason === 'locked') {
     return error(
       `密码错误次数过多，请 ${Math.ceil(auth.retryAfter / 60)} 分钟后再试`,
@@ -59,6 +63,10 @@ export async function onRequestPost(context) {
 
   if (auth.ok) {
     return json({ required: true, authenticated: true });
+  }
+
+  if (auth.reason === 'banned') {
+    return error('该 IP 输错密码次数过多，已被永久拒绝访问', 403);
   }
 
   if (auth.reason === 'locked') {

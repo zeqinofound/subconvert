@@ -89,3 +89,53 @@ export async function clearFailures(kv, ip) {
     await kv.delete(PREFIX + ip);
   } catch { /* 清理失败无所谓 */ }
 }
+
+/* ------------------------------------------------------------------ */
+/* 一天内输错 20 次 → 永久封禁（站长 2026-10-27 定的规矩）              */
+/*                                                                    */
+/* 与上面的短时锁定是两套独立计数：短时锁定按"连续失败"算、成功就清；  */
+/* 这里按自然滚动的 24 小时窗口累计，只要是密码校验失败就 +1，        */
+/* 登录成功也不清——规则原话是"一天内输错达到 20 以上就永久拒绝"。    */
+/* 封禁记录写在 KV 里且不设过期；解封只能手动删掉 authban:<ip> 这条。 */
+/* ------------------------------------------------------------------ */
+
+const BAN_PREFIX = 'authban:';
+const DAY_PREFIX = 'authday:';
+/** 24 小时窗口内允许的输错上限，达到即封 */
+const DAY_LIMIT = 20;
+/** 累计窗口：24 小时 */
+const DAY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** 查询某 IP 是否已被永久封禁 */
+export async function getBan(kv, ip) {
+  if (!kv) return false;
+  const rec = await readRecord(kv, BAN_PREFIX + ip);
+  return !!(rec && rec.banned);
+}
+
+/**
+ * 记一次输错到"当日累计"里；达到上限时写入永久封禁。
+ * @returns {{banned: boolean, dayCount: number}}
+ */
+export async function recordDayFailure(kv, ip) {
+  if (!kv) return { banned: false, dayCount: 0 };
+
+  const key = DAY_PREFIX + ip;
+  const now = Date.now();
+  let rec = await readRecord(kv, key);
+  if (!rec || !rec.windowStart || now - rec.windowStart >= DAY_WINDOW_MS) {
+    rec = { count: 0, windowStart: now };
+  }
+  rec.count = (rec.count || 0) + 1;
+
+  if (rec.count >= DAY_LIMIT) {
+    await kv.put(BAN_PREFIX + ip, JSON.stringify({ banned: true, at: now, dayCount: rec.count }));
+    try { await kv.delete(key); } catch { /* 已封禁，当日计数留不留无所谓 */ }
+    return { banned: true, dayCount: rec.count };
+  }
+
+  // 计数记录随窗口一起过期，免得 KV 里堆垃圾
+  const ttl = Math.max(60, Math.ceil((rec.windowStart + DAY_WINDOW_MS - now) / 1000));
+  await kv.put(key, JSON.stringify(rec), { expirationTtl: ttl });
+  return { banned: false, dayCount: rec.count };
+}

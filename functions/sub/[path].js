@@ -14,6 +14,7 @@
 import { processSubscriptionRequest } from '../_lib/convert.js';
 import { handleCORS } from '../_lib/response.js';
 import { subscriptionCacheKey } from '../_lib/cache.js';
+import { isBanned } from '../_lib/auth.js';
 
 /** 边缘缓存时长（秒）。源订阅变更最长在这个时间后可见。 */
 const CACHE_TTL_SECONDS = 300;
@@ -23,6 +24,12 @@ export async function onRequestGet(context) {
 
   if (!env.SUBCONVERT_KV) {
     return new Response('KV namespace not configured', { status: 500 });
+  }
+
+  // 永久封禁的 IP 连订阅也不给（站长规矩：输错密码一天满 20 次永久拒绝）。
+  // 必须查在边缘缓存之前：缓存是按路径共享的，不然被封 IP 还能命中缓存拿到内容。
+  if (await isBanned(request, env)) {
+    return new Response('Forbidden', { status: 403 });
   }
 
   // The splat parameter gives us the full path after /sub/
