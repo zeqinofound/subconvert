@@ -75,13 +75,6 @@ export async function onRequestGet(context) {
     headers['profile-web-page-url'] = result.webPageUrl;
   }
 
-  // profile-update-interval: the link's configured auto-refresh interval in
-  // hours. Clients that honor this header (Shadowrocket, Streisand, …)
-  // schedule their automatic subscription refreshes accordingly.
-  if (result.updateInterval) {
-    headers['profile-update-interval'] = String(result.updateInterval);
-  }
-
   const response = new Response(result.content, {
     status: 200,
     headers,

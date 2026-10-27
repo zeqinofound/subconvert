@@ -2,8 +2,8 @@
  * KV storage helpers for managing conversion links.
  *
  * 存储结构：
- *   Key: "links:all"   → { v: 2, links: [ 全部链接记录 ] }   ← 索引（读取加速）
- *   Key: "link:{path}" → 单条记录镜像（自愈用，见 loadAll 的说明）
+ *   Key: "links:all"   → { v: 2, links: [ 全部链接记录 ] }   ← 唯一数据源
+ *   Key: "link:{path}" → 单条记录（v1 旧格式，仅为兼容老数据保留）
  *
  * 为什么从"一条链接一个 key"改成"全部放一个 key"：
  * 旧做法是 kv.list() 拿 key 列表，再对每条 key 各发一次 kv.get()，
@@ -21,46 +21,27 @@ const MAX_LINKS = 2000;
 
 /**
  * 读取全部链接。
- *
- * index（links:all）只是加速缓存，不能单独作数：KV 是最终一致的，不同
- * 边缘节点在一段时间内读到的 index 可能是旧值甚至为空。若只信 index，
- * 一次基于旧读的"读全量 → 改一条 → 写回全量"就会把别人刚建好的链接
- * 整份冲掉（实际发生过：新链接建成后，旧链接随即 404）。
- * 因此 saveAll 会给每条链接在 "link:{path}" 下另存一份镜像，这里把
- * 镜像扫描结果与 index 合并（以镜像为准），不一致时顺手修复 index。
- * 两边都为空时直接返回空数组，绝不写回——旧实现会在这种情况下把空
- * 数组存成新 index，那正是冲掉链接的路径。
+ * 老版本部署在首次调用时会把 v1 的 "link:{path}" 数据迁移到新结构。
  */
 async function loadAll(kv) {
-  let indexLinks = [];
   const raw = await kv.get(INDEX_KEY);
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
       const links = Array.isArray(parsed) ? parsed : (parsed && parsed.links);
-      if (Array.isArray(links)) indexLinks = links;
-    } catch { /* 数据损坏：落到下面的镜像重建 */ }
+      if (Array.isArray(links)) return links;
+    } catch { /* 数据损坏：落到下面的重建流程 */ }
   }
 
-  const scanned = await readLegacyLinks(kv);
-  if (scanned.length === 0) return indexLinks;
-
-  const byPath = new Map();
-  for (const l of indexLinks) if (l && l.customPath) byPath.set(l.customPath, l);
-  for (const l of scanned) if (l && l.customPath) byPath.set(l.customPath, l);
-  const merged = [...byPath.values()];
-  if (merged.length !== indexLinks.length) {
-    await saveAll(kv, merged).catch(() => {});
-  }
-  return merged;
+  // 首次运行，或来自 v1 的旧数据：扫描一次旧 key，之后都走 index。
+  const legacy = await readLegacyLinks(kv);
+  await saveAll(kv, legacy);
+  return legacy;
 }
 
-/** 写回全部链接，并给每条链接在自己的 key 下留一份镜像（自愈用，见 loadAll） */
+/** 写回全部链接 */
 async function saveAll(kv, links) {
   await kv.put(INDEX_KEY, JSON.stringify({ v: 2, links }));
-  await Promise.all(links.map(l =>
-    kv.put(PREFIX + l.customPath, JSON.stringify(l)).catch(() => {})
-  ));
 }
 
 /**
@@ -117,7 +98,6 @@ export async function createLink(kv, link) {
     customPath: link.customPath,
     name: link.name || '',
     userAgent: link.userAgent || '',
-    updateInterval: link.updateInterval || null,
     createdAt: now,
   };
 

@@ -1,5 +1,5 @@
 /**
- * PenguinLink Frontend
+ * SubConvert Frontend
  * Handles form submission, link management, authentication, and UI interactions.
  */
 
@@ -265,20 +265,10 @@ async function handleSubmit(e) {
   const sourceUrl = $('#sourceUrl').value.trim();
   const targetFormat = $('#targetFormat').value;
   const customPath = $('#customPath').value.trim();
-  const updateIntervalRaw = $('#updateInterval').value.trim();
 
   if (!sourceUrl) {
     toast('请输入源订阅 URL', 'error');
     return;
-  }
-
-  let updateInterval;
-  if (updateIntervalRaw) {
-    updateInterval = Number(updateIntervalRaw);
-    if (!Number.isInteger(updateInterval) || updateInterval < 1 || updateInterval > 720) {
-      toast('自动更新间隔须为 1–720 的整数（小时），或留空不设置', 'error');
-      return;
-    }
   }
 
   if (customPath && !/^[a-zA-Z0-9\-_ ]+$/.test(customPath)) {
@@ -288,7 +278,7 @@ async function handleSubmit(e) {
 
   setLoading(true);
   try {
-    const result = await apiCreateLink({ sourceUrl, targetFormat, customPath, updateInterval });
+    const result = await apiCreateLink({ sourceUrl, targetFormat, customPath });
     toast(`转换链接已创建：${result.subscriptionUrl}`, 'success');
 
     // Reset form
@@ -393,7 +383,7 @@ function buildRowInner(link) {
       <div class="cell-name"><a class="cell-path-link" href="${escapeHtml(link.subscriptionUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(link.subscriptionUrl)}">${escapeHtml(link.customPath)}</a></div>
     </td>
     <td class="cell-url" title="${escapeHtml(link.sourceUrl)}">${escapeHtml(link.sourceUrl)}</td>
-    <td><span class="cell-format">${escapeHtml(FORMAT_LABELS[link.targetFormat] || link.targetFormat)}</span>${link.updateInterval ? `<div class="cell-interval">每 ${escapeHtml(String(link.updateInterval))} 小时自动更新</div>` : ''}</td>
+    <td><span class="cell-format">${escapeHtml(FORMAT_LABELS[link.targetFormat] || link.targetFormat)}</span></td>
     <td>
       <div class="cell-actions">
         <button class="btn-icon" data-action="copy" data-url="${escapeHtml(link.subscriptionUrl)}" title="复制订阅链接">
