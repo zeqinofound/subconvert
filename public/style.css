@@ -173,6 +173,13 @@ label {
   color: var(--danger);
 }
 
+.form-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted, #8a8f98);
+  margin: 0;
+}
+
 input, select, textarea {
   font-family: var(--font);
   font-size: 14px;

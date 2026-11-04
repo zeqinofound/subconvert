@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PenguinLink - 代理订阅转换</title>
   <meta name="description" content="自托管的代理订阅转换工具，支持 Clash/Sing-box/V2Ray 等格式互转">
-  <link rel="stylesheet" href="/style.css?v=20261027b">
+  <link rel="stylesheet" href="/style.css?v=20261104a">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔄</text></svg>">
 </head>
 <body>
@@ -49,6 +49,16 @@
                 <option value="singbox">Sing-Box (JSON)</option>
                 <option value="plain">Plain Text (URI 列表)</option>
               </select>
+            </div>
+
+            <div class="form-group">
+              <label for="adblock">去广告</label>
+              <select id="adblock" name="adblock">
+                <option value="none" selected>不去广告</option>
+                <option value="lite">Lite（只拦国内广告，轻快）</option>
+                <option value="full">Full（国内外全覆盖）</option>
+              </select>
+              <p class="form-hint">名单来自 217heidai/adblockfilters（每 8 小时更新），仅 Clash / Sing-Box 生效；Lite 约 6 千条，Full 约 24.7 万条</p>
             </div>
 
               <div class="form-group">
@@ -161,6 +171,6 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/app.js?v=20261027c"></script>
+  <script src="/app.js?v=20261104a"></script>
 </body>
 </html>

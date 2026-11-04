@@ -98,6 +98,7 @@ export async function createLink(kv, link) {
     customPath: link.customPath,
     name: link.name || '',
     userAgent: link.userAgent || '',
+    adblock: link.adblock || 'none',
     createdAt: now,
   };
 

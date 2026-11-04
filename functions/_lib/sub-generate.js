@@ -11,6 +11,7 @@
 import yaml from './vendor/js-yaml.mjs';
 import { generateURI } from './uri-generate.js';
 import { b64Encode } from './utils.js';
+import { normalizeAdblock, applyClashAdblock, applySingboxAdblock } from './adblock.js';
 
 /** Supported output format identifiers */
 export const FORMATS = {
@@ -187,6 +188,12 @@ function genClash(nodes, options = {}) {
   if (meta.clashApi) header['clash-api'] = meta.clashApi;
 
   const fullConfig = { ...header, ...config };
+
+  // 去广告（链接创建时选的 none / lite / full）：注入远程规则集引用，
+  // 名单本体由客户端自行拉取更新，转换器不内嵌。
+  const adblock = normalizeAdblock(options.adblock);
+  if (adblock !== 'none') applyClashAdblock(fullConfig, adblock);
+
   return yaml.dump(fullConfig, { lineWidth: -1, quotingType: '"' });
 }
 
@@ -468,6 +475,10 @@ function genSingbox(nodes, options = {}) {
     route,
   };
   if (meta.clashApi) config.experimental = { clash_api: meta.clashApi };
+
+  // 去广告（none / lite / full）：注入远程规则集引用，同 Clash 路径。
+  const adblock = normalizeAdblock(options.adblock);
+  if (adblock !== 'none') applySingboxAdblock(config, adblock);
 
   return JSON.stringify(config, null, 2);
 }

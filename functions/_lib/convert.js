@@ -298,7 +298,7 @@ export async function processSubscriptionRequest(kv, path) {
 
     let result;
     try {
-      result = convertSubscription(sourceContent, link.targetFormat, { name: link.name });
+      result = convertSubscription(sourceContent, link.targetFormat, { name: link.name, adblock: link.adblock });
     } catch (e) {
       return { error: 500, message: `Conversion failed: ${e.message}` };
     }
@@ -338,7 +338,7 @@ export async function processSubscriptionRequest(kv, path) {
     result = convertMergedSubscriptions(
       succeeded.map(s => s.content),
       link.targetFormat,
-      { name: link.name }
+      { name: link.name, adblock: link.adblock }
     );
   } catch (e) {
     return { error: 500, message: `Conversion failed: ${e.message}` };

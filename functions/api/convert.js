@@ -5,6 +5,7 @@
  *   {
  *     "sourceUrl": "https://example.com/sub",      // required；可填多个源，用 | 或换行分隔，输出时合并为一份订阅
  *     "targetFormat": "clash",                       // required: clash | singbox | base64 | plain
+ *     "adblock": "lite",                             // optional: none | lite | full（默认 none；仅 clash/singbox 生效）
  *     "customPath": "my-sub",                        // optional, auto-generated if omitted
  *     "name": "My Subscription"                      // optional display name
  *   }
@@ -58,7 +59,7 @@ export async function onRequestPost(context) {
     return error('Invalid JSON body');
   }
 
-  const { sourceUrl, targetFormat, customPath, name, userAgent } = body;
+  const { sourceUrl, targetFormat, customPath, name, userAgent, adblock } = body;
 
   // Validate required fields
   if (!sourceUrl || typeof sourceUrl !== 'string') {
@@ -115,6 +116,14 @@ export async function onRequestPost(context) {
     return error(`targetFormat must be one of: ${VALID_FORMATS.join(', ')}`);
   }
 
+  // 去广告档位：不传 = 不去广告；传了就必须是三档之一，避免打错字静默失效。
+  const adblockMode = adblock === undefined || adblock === null || adblock === ''
+    ? 'none'
+    : adblock;
+  if (!['none', 'lite', 'full'].includes(adblockMode)) {
+    return error('adblock must be one of: none, lite, full');
+  }
+
   // Sanitize and validate custom path
   const rawPath = customPath ? String(customPath).trim() : '';
   let path = rawPath ? sanitizePath(rawPath) : generateId(20);
@@ -148,6 +157,7 @@ export async function onRequestPost(context) {
       customPath: path,
       name: name || '',
       userAgent: userAgent || '',
+      adblock: adblockMode,
     });
   } catch (e) {
     return error(e.message || 'Failed to create link', 400);

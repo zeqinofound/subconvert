@@ -16,6 +16,11 @@ const FORMAT_LABELS = {
   plain: 'Plain',
 };
 
+const ADBLOCK_LABELS = {
+  lite: '去广告 Lite',
+  full: '去广告 Full',
+};
+
 const AUTH_KEY = 'subconvert_access_password';
 let currentPassword = localStorage.getItem(AUTH_KEY) || sessionStorage.getItem(AUTH_KEY) || '';
 
@@ -264,6 +269,7 @@ async function handleSubmit(e) {
 
   const sourceUrl = $('#sourceUrl').value.trim();
   const targetFormat = $('#targetFormat').value;
+  const adblock = $('#adblock').value;
   const customPath = $('#customPath').value.trim();
 
   if (!sourceUrl) {
@@ -278,7 +284,7 @@ async function handleSubmit(e) {
 
   setLoading(true);
   try {
-    const result = await apiCreateLink({ sourceUrl, targetFormat, customPath });
+    const result = await apiCreateLink({ sourceUrl, targetFormat, customPath, adblock });
     toast(`转换链接已创建：${result.subscriptionUrl}`, 'success');
 
     // Reset form
@@ -383,7 +389,7 @@ function buildRowInner(link) {
       <div class="cell-name"><a class="cell-path-link" href="${escapeHtml(link.subscriptionUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(link.subscriptionUrl)}">${escapeHtml(link.customPath)}</a></div>
     </td>
     <td class="cell-url" title="${escapeHtml(link.sourceUrl)}">${escapeHtml(link.sourceUrl)}</td>
-    <td><span class="cell-format">${escapeHtml(FORMAT_LABELS[link.targetFormat] || link.targetFormat)}</span></td>
+    <td><span class="cell-format">${escapeHtml(FORMAT_LABELS[link.targetFormat] || link.targetFormat)}${ADBLOCK_LABELS[link.adblock] ? ` · ${ADBLOCK_LABELS[link.adblock]}` : ''}</span></td>
     <td>
       <div class="cell-actions">
         <button class="btn-icon" data-action="copy" data-url="${escapeHtml(link.subscriptionUrl)}" title="复制订阅链接">
