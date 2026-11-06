@@ -12,6 +12,7 @@ import yaml from './vendor/js-yaml.mjs';
 import { generateURI } from './uri-generate.js';
 import { b64Encode } from './utils.js';
 import { normalizeAdblock, applyClashAdblock, applySingboxAdblock } from './adblock.js';
+import { applyClashSteamDirect, applySingboxSteamDirect } from './steam.js';
 
 /** Supported output format identifiers */
 export const FORMATS = {
@@ -188,6 +189,9 @@ function genClash(nodes, options = {}) {
   if (meta.clashApi) header['clash-api'] = meta.clashApi;
 
   const fullConfig = { ...header, ...config };
+
+  // Steam 直连（默认开启）：下载流量不走节点，规则固定置顶。
+  applyClashSteamDirect(fullConfig);
 
   // 去广告（链接创建时选的 none / lite / full）：注入远程规则集引用，
   // 名单本体由客户端自行拉取更新，转换器不内嵌。
@@ -475,6 +479,9 @@ function genSingbox(nodes, options = {}) {
     route,
   };
   if (meta.clashApi) config.experimental = { clash_api: meta.clashApi };
+
+  // Steam 直连（默认开启）：下载流量不走节点，规则固定置顶。
+  applySingboxSteamDirect(config);
 
   // 去广告（none / lite / full）：注入远程规则集引用，同 Clash 路径。
   const adblock = normalizeAdblock(options.adblock);
